@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+  <PropertyGroup Label="UserMacros">
+    <SILENTPATCH_NAME>SilentPatchBully</SILENTPATCH_NAME>
+	<SILENTPATCH_EXT>.asi</SILENTPATCH_EXT>
+    <SILENTPATCH_FULL_NAME>SilentPatch for Bully: Scholarship Edition</SILENTPATCH_FULL_NAME>
+    <SILENTPATCH_REVISION_ID>1</SILENTPATCH_REVISION_ID>
+	<SILENTPATCH_BUILD_ID>0</SILENTPATCH_BUILD_ID>
+    <SILENTPATCH_COPYRIGHT>2018</SILENTPATCH_COPYRIGHT>
+  </PropertyGroup>
+  <PropertyGroup />
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>SILENTPATCH_REVISION_ID=$(SILENTPATCH_REVISION_ID);SILENTPATCH_BUILD_ID=$(SILENTPATCH_BUILD_ID);SILENTPATCH_NAME=$(SILENTPATCH_NAME);SILENTPATCH_FULL_NAME=$(SILENTPATCH_FULL_NAME);SILENTPATCH_COPYRIGHT=$(SILENTPATCH_COPYRIGHT);SILENTPATCH_EXT=$(SILENTPATCH_EXT);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>SILENTPATCH_REVISION_ID=$(SILENTPATCH_REVISION_ID);SILENTPATCH_BUILD_ID=$(SILENTPATCH_BUILD_ID);SILENTPATCH_BUILD_ID=$(SILENTPATCH_BUILD_ID);SILENTPATCH_NAME=$(SILENTPATCH_NAME);SILENTPATCH_FULL_NAME=$(SILENTPATCH_FULL_NAME);SILENTPATCH_COPYRIGHT=$(SILENTPATCH_COPYRIGHT);SILENTPATCH_EXT=$(SILENTPATCH_EXT);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+</Project>
