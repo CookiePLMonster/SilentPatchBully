@@ -20,6 +20,9 @@
   <ItemGroup>
     <ClInclude Include="MemoryMgr.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SilentPatch.rc" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{006E2EDF-5BF2-442E-9C27-B88F6D5DD4F8}</ProjectGuid>
     <RootNamespace>VCFix</RootNamespace>
