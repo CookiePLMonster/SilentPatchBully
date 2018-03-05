@@ -155,6 +155,48 @@ namespace FixedAllocators
 
 };
 
+namespace LoadColModelFix
+{
+	bool hackBoundBoxGen = true;
+	static void (*orgGenerateAllBoundingBoxes)();
+	void GenerateAllBoundingBoxes()
+	{
+		// hackBoundBoxGen inverted compared to WD's implementation
+		hackBoundBoxGen = false;
+		orgGenerateAllBoundingBoxes();
+		hackBoundBoxGen = true;
+	}
+
+	__declspec(naked) void CheckHackVar1()
+	{
+		_asm
+		{
+			mov     [esp+3Ch-8 + 4], cx
+			jle		CheckHackVar1_Return
+			mov		al, hackBoundBoxGen
+			test	al, al
+
+		CheckHackVar1_Return:
+			retn
+		}
+	}
+
+	__declspec(naked) void CheckHackVar2()
+	{
+		_asm
+		{
+			sub     eax, [esp+3Ch-28h + 4]
+			cmp     eax, ebp
+			jz		CheckHackVar2_Return
+			mov		al, hackBoundBoxGen
+			test	al, al
+
+		CheckHackVar2_Return:
+			retn
+		}
+	}
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
 	UNREFERENCED_PARAMETER(hinstDLL);
@@ -197,6 +239,23 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			// Write a pointer to fake 'upper memory bound' so CStreaming::MakeSpaceFor is pleased
 			static const uintptr_t FAKE_MAX_MEMORY = 0x7FFFFFFF;
 			Patch( 0xD141A8, &FAKE_MAX_MEMORY );
+		}
+
+		// Fixed a crash in CFileLoader::LoadCollisionModel occuring with a replaced allocator
+		// Sourced from War Drum's mobile port
+		// hackBoundBoxGen logic is inverted compared to WD's implementation to simplify inline assembly hacks
+		{
+			using namespace LoadColModelFix;
+
+			// if ( vertCount > 0 ) -> if ( vertCount > 0 && hackBoundBoxGen )
+			InjectHook( 0x42BEA4, CheckHackVar1, PATCH_CALL );
+
+			// if ( v27 - v51 != a3 ) -> if ( v27 - v51 != a3 && hackBoundBoxGen )
+			Nop( 0x42BFF0, 1 );
+			InjectHook( 0x42BFF0 + 1, CheckHackVar2, PATCH_CALL );
+
+			ReadCall( 0x42FA34, orgGenerateAllBoundingBoxes );
+			InjectHook( 0x42FA34, GenerateAllBoundingBoxes );
 		}
 
 		// Remove FILE_FLAG_NO_BUFFERING from CdStreams
