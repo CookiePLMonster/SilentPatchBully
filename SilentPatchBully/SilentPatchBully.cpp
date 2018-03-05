@@ -197,6 +197,17 @@ namespace LoadColModelFix
 	}
 }
 
+namespace FrameTimingFix
+{
+	void (*orgUpdateTimer)(bool);
+	void UpdateTimerAndSleep( bool captureInput )
+	{
+		orgUpdateTimer( captureInput );
+		Sleep( 100 );
+	}
+
+}
+
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
 	UNREFERENCED_PARAMETER(hinstDLL);
@@ -256,6 +267,23 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 			ReadCall( 0x42FA34, orgGenerateAllBoundingBoxes );
 			InjectHook( 0x42FA34, GenerateAllBoundingBoxes );
+		}
+
+		{
+			using namespace FrameTimingFix;
+
+			// DO NOT sleep when limiting FPS in game...
+			Nop( 0x4061C4, 2 + 6 );
+			
+			// ...sleep for 100ms periodically when minimized
+			ReadCall( 0x43D660, orgUpdateTimer );
+			InjectHook( 0x43D660, UpdateTimerAndSleep );
+
+			// Because we're doing a busy loop now, 31FPS cap can now become a 30FPS cap
+			if ( *(uint32_t*)(0x40618F + 1) == 31 )
+			{
+				Patch<uint32_t>( 0x40618F + 1, 30 );
+			}
 		}
 
 		// Remove FILE_FLAG_NO_BUFFERING from CdStreams
