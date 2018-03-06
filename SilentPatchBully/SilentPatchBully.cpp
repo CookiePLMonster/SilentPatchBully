@@ -207,6 +207,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			Patch<uint8_t>( 0x499CD8, 0x56 );
 			InjectHook( 0x499CD9, OperatorDelete_Safe );
 
+			// Don't call cSCREAMAudioManager::CleanupAfterMission from cSCREAMAudioManager::Terminate (used already freed memory)
+			Nop( 0x5963C3, 5 );
+
 			// Write a pointer to fake 'upper memory bound' so CStreaming::MakeSpaceFor is pleased
 			static const uintptr_t FAKE_MAX_MEMORY = 0x7FFFFFFF;
 			Patch( 0xD141A8, &FAKE_MAX_MEMORY );
