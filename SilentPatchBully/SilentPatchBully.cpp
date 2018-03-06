@@ -89,8 +89,6 @@ namespace FixedAllocators
 			return (void*)&sneakyAllocation;
 		}*/
 
-		size = (size + 31) & ~31;
-
 		// Their malloc is actually calloc, as allocated memory gets zeroed
 		return calloc( size, 1 );
 		//auto mem = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size );
@@ -112,8 +110,6 @@ namespace FixedAllocators
 		{
 			return nullptr;
 		}
-
-		size = (size + 31) & ~31;
 
 		// Based on CMemoryMgr::MallocAlign from GTA SA
 		//uintptr_t mem = (uintptr_t)HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size + align );
@@ -215,6 +211,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			static const uintptr_t FAKE_MAX_MEMORY = 0x7FFFFFFF;
 			Patch( 0xD141A8, &FAKE_MAX_MEMORY );
 		}
+
+
+		// Fixed a crash in CFileLoader::LoadCollisionModel occuring with a replaced allocator
+		// Fixed COLL vertex loading
+		Patch<uint8_t>( 0x42BE80 + 2, 16 );
 
 		{
 			using namespace FrameTimingFix;
