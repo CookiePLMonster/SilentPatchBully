@@ -236,6 +236,17 @@ void InjectHooks()
 
 	// Remove FILE_FLAG_NO_BUFFERING from CdStreams
 	Patch<uint32_t>( 0x73ABEA + 6, FILE_FLAG_OVERLAPPED );
+
+
+	// Fixed crash in Nutcracking
+	// Consistently treat playercount as ID, not actual size
+	Nop( 0x6FB302, 6 );
+	Nop( 0x6FB3EB, 6 );
+	Nop( 0x6FC920, 2 );
+	Nop( 0x6FC945, 2 );
+	Nop( 0x6FC94F, 2 );
+	Nop( 0x6FC97C, 2 );
+	Nop( 0x6FCE91, 2 );
 }
 
 static void ProcHook()
