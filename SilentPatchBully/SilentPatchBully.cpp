@@ -13,6 +13,17 @@
 
 #pragma comment(lib, "shlwapi.lib")
 
+#ifndef NDEBUG
+
+#define INCLUDE_MEMORY_CHECKS 1
+
+#else
+
+#define INCLUDE_MEMORY_CHECKS 0
+
+#endif
+
+
 static HINSTANCE hDLLModule;
 
 namespace FixedAllocators
@@ -27,6 +38,14 @@ namespace FixedAllocators
 		// Do nothing
 	}
 
+#if INCLUDE_MEMORY_CHECKS
+	static constexpr size_t MEMORY_PROLOGUE_SIZE = sizeof(size_t) + sizeof(uint32_t);
+	static constexpr size_t MEMORY_EPILOGUE_SIZE = sizeof(uint32_t);
+	static constexpr size_t MEMORY_CANARIES_TOTAL_SIZE = MEMORY_PROLOGUE_SIZE + MEMORY_EPILOGUE_SIZE;
+
+	static constexpr uint32_t MEMORY_CANARY = 0xFDFDFDFD;
+#endif
+
 	void* MemoryMgrMalloc( size_t size )
 	{
 		if ( size == 0 )
@@ -35,14 +54,45 @@ namespace FixedAllocators
 		}
 
 		// Their malloc is actually calloc, as allocated memory gets zeroed
+#if INCLUDE_MEMORY_CHECKS
+		// Debug memory is structured as follows:
+		// Allocated size
+		// FDFDFDFD
+		// Allocated space
+		// FDFDFDFD
+
+		void* memory = calloc( size + MEMORY_CANARIES_TOTAL_SIZE, 1 );
+		assert( memory != nullptr );
+
+		uintptr_t memStart = uintptr_t(memory);
+		*(size_t*)memStart = size;
+		*(uint32_t*)( memStart + sizeof(size_t) ) = MEMORY_CANARY;
+		*(uint32_t*)( memStart + MEMORY_PROLOGUE_SIZE + size ) = MEMORY_CANARY;
+
+		return (void*)( memStart + MEMORY_PROLOGUE_SIZE );
+#else
 		return calloc( size, 1 );
+#endif
 	}
 
 	void MemoryMgrFree( void* data )
 	{
 		if ( data != nullptr )
 		{
+#if INCLUDE_MEMORY_CHECKS
+			uintptr_t mem = uintptr_t(data);
+			uint32_t startCanary = *(uint32_t*)(mem - sizeof(uint32_t));
+			assert( startCanary == MEMORY_CANARY );
+
+			// If start canary is valid, we can check the end canary (since size is probably valid too)
+			size_t size = *(size_t*)(mem - MEMORY_PROLOGUE_SIZE);
+			uint32_t endCanary = *(uint32_t*)(mem + size);
+			assert( endCanary == MEMORY_CANARY );
+
+			free( (void*)(mem - MEMORY_PROLOGUE_SIZE) );
+#else
 			free( data );
+#endif
 		}
 	}
 
@@ -52,20 +102,17 @@ namespace FixedAllocators
 		{
 			return nullptr;
 		}
-
-		// Based on CMemoryMgr::MallocAlign from GTA SA
-		uintptr_t mem = reinterpret_cast<uintptr_t>(malloc( size + align ));
-		uintptr_t memAligned = ( mem + align ) & ~(align - 1);
-
-		uintptr_t* spaceForRealPtr = reinterpret_cast<uintptr_t*>(memAligned) - 1;
-		*spaceForRealPtr = mem;
-		return reinterpret_cast<void*>(memAligned);
+		void* memory = _aligned_malloc( size, align );
+		assert( memory != nullptr );
+		return memory;
 	}
 
 	void RwFreeAlign( void* data )
 	{
-		uintptr_t* spaceForRealPtr = static_cast<uintptr_t*>(data) - 1;
-		free( reinterpret_cast<void*>(*spaceForRealPtr) );
+		if ( data != nullptr )
+		{
+			_aligned_free( data );
+		}
 	}
 
 	void OperatorDelete_Safe( void** pData )
