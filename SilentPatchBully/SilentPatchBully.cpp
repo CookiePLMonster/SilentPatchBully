@@ -9,6 +9,12 @@
 
 #include <cassert>
 
+#include <Shlwapi.h>
+
+#pragma comment(lib, "shlwapi.lib")
+
+static HINSTANCE hDLLModule;
+
 namespace FixedAllocators
 {
 	void InitMemoryMgr()
@@ -110,7 +116,7 @@ void InjectHooks()
 	if ( !MemEquals( 0x860C6B, { 0xC7, 0x45, 0xFC, 0xFE, 0xFF, 0xFF, 0xFF } ) )
 	{
 #ifndef _DEBUG
-		MessageBoxW( nullptr, L"You're using an executable version not supported by SilentPatch (most likely 1.154)!\n\n"
+		MessageBoxW( nullptr, L"You are using an executable version not supported by SilentPatch (most likely 1.154)!\n\n"
 			L"I strongly recommend obtaining a 1.200 executable - if you are using a retail version, just download an official 1.200 patch; "
 			L"if you are using a Steam version, verify your game's files (since by default Steam uses 1.200).",
 			L"SilentPatch", MB_OK | MB_ICONWARNING );
@@ -119,6 +125,11 @@ void InjectHooks()
 	}
 
 	std::unique_ptr<ScopedUnprotect::Unprotect> Protect = ScopedUnprotect::UnprotectSectionOrFullModule( GetModuleHandle( nullptr ), ".text" );
+
+	// Obtain a path to the ASI
+	wchar_t			wcModulePath[MAX_PATH];
+	GetModuleFileNameW(hDLLModule, wcModulePath, _countof(wcModulePath) - 3); // Minus max required space for extension
+	PathRenameExtensionW(wcModulePath, L".ini");
 
 	// Replaced custom CMemoryHeap with regular CRT functions (like in GTA)
 	{
@@ -166,10 +177,14 @@ void InjectHooks()
 		InjectHook( 0x43D660, UpdateTimerAndSleep );
 
 		// Because we're doing a busy loop now, 31FPS cap can now become a 30FPS cap
-		if ( *(uint32_t*)(0x40618F + 1) == 31 )
+		if ( const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"FPSLimit", -1, wcModulePath); INIoption != -1 )
 		{
-			Patch<uint32_t>( 0x40618F + 1, 30 );
+			Patch<int32_t>( 0x40618F + 1, INIoption > 0 ? INIoption : INT_MAX );
 		}
+
+		// Revert code changes 60FPS EXE does, we don't need them anymore
+		Patch<int8_t>( 0x4061BE + 1, 0x4 );
+		Patch<uint8_t>( 0x4061C2, 0x73 );
 	}
 
 	// Remove FILE_FLAG_NO_BUFFERING from CdStreams
@@ -265,6 +280,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 	if ( fdwReason == DLL_PROCESS_ATTACH )
 	{
+		hDLLModule = hinstDLL;
 		InstallHooks();
 	}
 	return TRUE;
