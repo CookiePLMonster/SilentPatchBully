@@ -9,27 +9,6 @@
 
 #include <cassert>
 
-/*__declspec(naked) void* orgMalloc( size_t size )
-{
-	_asm
-	{
-		cmp byte ptr ds:[0D1416Ch], 0
-		push 5EE837h
-		retn
-	}
-}
-
-__declspec(naked) void orgFree( void* data )
-{
-	_asm
-	{
-		mov     eax, [esp+4]
-		test    eax, eax
-		push 5EE946h
-		retn
-	}
-}*/
-
 namespace FixedAllocators
 {
 	void InitMemoryMgr()
@@ -42,38 +21,6 @@ namespace FixedAllocators
 		// Do nothing
 	}
 
-	//static const uint64_t sneakyAllocation = 0xBAADF00DBEEF6996;
-	/*void* MemoryMgrMalloc( size_t size )
-	{
-		//size *= 8;
-
-		/*if ( size == 0 )
-		{
-			// You sneaky fuck
-			return (void*)&sneakyAllocation;
-		}
-		return orgMalloc( size );*/
-
-	/*	// Their malloc is actually calloc, as allocated memory gets zeroed
-		return calloc( size, 1 );
-		//auto mem = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size );
-		//return mem;
-	}
-
-	void MemoryMgrFree( void* data )
-	{
-		/*if ( data != &sneakyAllocation )
-		{
-			orgFree( data );
-		}*/
-
-	/*	if ( data != nullptr /*&& data != &sneakyAllocatio*///n )
-/*		{
-			//HeapFree( GetProcessHeap(), 0, data );
-			free( data );
-		}
-	}*/
-
 	void* MemoryMgrMalloc( size_t size )
 	{
 		if ( size == 0 )
@@ -81,25 +28,14 @@ namespace FixedAllocators
 			return nullptr;
 		}
 
-		//size *= 8;
-
-		/*if ( size == 0 )
-		{
-			// You sneaky fuck
-			return (void*)&sneakyAllocation;
-		}*/
-
 		// Their malloc is actually calloc, as allocated memory gets zeroed
 		return calloc( size, 1 );
-		//auto mem = HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size );
-		//return mem;
 	}
 
 	void MemoryMgrFree( void* data )
 	{
-		if ( data != nullptr /*&& data != &sneakyAllocation */)
+		if ( data != nullptr )
 		{
-			//HeapFree( GetProcessHeap(), 0, data );
 			free( data );
 		}
 	}
@@ -112,7 +48,6 @@ namespace FixedAllocators
 		}
 
 		// Based on CMemoryMgr::MallocAlign from GTA SA
-		//uintptr_t mem = (uintptr_t)HeapAlloc( GetProcessHeap(), HEAP_ZERO_MEMORY, size + align );
 		uintptr_t mem = reinterpret_cast<uintptr_t>(malloc( size + align ));
 		uintptr_t memAligned = ( mem + align ) & ~(align - 1);
 
@@ -124,7 +59,6 @@ namespace FixedAllocators
 	void RwFreeAlign( void* data )
 	{
 		uintptr_t* spaceForRealPtr = static_cast<uintptr_t*>(data) - 1;
-		//HeapFree( GetProcessHeap(), 0, reinterpret_cast<void*>(*spaceForRealPtr) );
 		free( reinterpret_cast<void*>(*spaceForRealPtr) );
 	}
 
@@ -189,11 +123,6 @@ void InjectHooks()
 	// Replaced custom CMemoryHeap with regular CRT functions (like in GTA)
 	{
 		using namespace FixedAllocators;
-		//ReadCall( 0x5EE830, orgMalloc );
-		//ReadCall( 0x5EE940, orgFree );
-
-		/*InjectHook( 0x5EE830, MemoryMgrMalloc, PATCH_JUMP );
-		InjectHook( 0x5EE940, MemoryMgrFree, PATCH_JUMP );*/
 
 		InjectHook( 0x5EE630, InitMemoryMgr, PATCH_JUMP );
 		InjectHook( 0x5EE5A0, ShutDownMemoryMgr, PATCH_JUMP );		
@@ -204,11 +133,9 @@ void InjectHooks()
 		// 0x5EEA60 - RwMemoryMgrFree - jumps to MemoryMgrFree
 		InjectHook( 0x5EEA70, RwFreeAlign, PATCH_JUMP );
 
-		// TODO: Lua functions
 		InjectHook( 0x5EEEF0, MemoryHeap_Free, PATCH_JUMP );
 		InjectHook( 0x5EF4D0, MemoryHeap_MoveMemoryBully, PATCH_JUMP );
 
-		// TODO: We can track memory a bit to make this function return somewhat accurate data
 		InjectHook( 0x5EEDD0, MemoryHeap_GetMemoryUsed, PATCH_JUMP );
 
 		// Fixed CPedType::Shutdown (zero pointers to prevent a double free)
@@ -282,7 +209,7 @@ static bool PatchIAT()
 	// Find IAT	
 	PIMAGE_IMPORT_DESCRIPTOR	pImports = (PIMAGE_IMPORT_DESCRIPTOR)((DWORD_PTR)hInstance + ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
 
-	// Find kernel32.dll
+	// Find user32.dll
 	for ( ; pImports->Name != 0; pImports++ )
 	{
 		if ( !_stricmp((const char*)((DWORD_PTR)hInstance + pImports->Name), "USER32.DLL") )
@@ -291,7 +218,7 @@ static bool PatchIAT()
 			{
 				PIMAGE_IMPORT_BY_NAME*		pFunctions = (PIMAGE_IMPORT_BY_NAME*)((DWORD_PTR)hInstance + pImports->OriginalFirstThunk);
 
-				// kernel32.dll found, find GetStartupInfoA
+				// user32.dll found, find SystemParametersInfoA
 				for ( ptrdiff_t j = 0; pFunctions[j] != nullptr; j++ )
 				{
 					if ( !strcmp((const char*)((DWORD_PTR)hInstance + pFunctions[j]->Name), "SystemParametersInfoA") )
