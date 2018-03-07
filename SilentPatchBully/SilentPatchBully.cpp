@@ -171,6 +171,19 @@ namespace FrameTimingFix
 void InjectHooks()
 {
 	using namespace Memory;
+
+	// If it's not 1.200, bail out
+	if ( !MemEquals( 0x860C6B, { 0xC7, 0x45, 0xFC, 0xFE, 0xFF, 0xFF, 0xFF } ) )
+	{
+#ifndef _DEBUG
+		MessageBoxW( nullptr, L"You're using an executable version not supported by SilentPatch (most likely 1.154)!\n\n"
+			L"I strongly recommend obtaining a 1.200 executable - if you are using a retail version, just download an official 1.200 patch; "
+			L"if you are using a Steam version, verify your game's files (since by default Steam uses 1.200).",
+			L"SilentPatch", MB_OK | MB_ICONWARNING );
+#endif
+		return;
+	}
+
 	std::unique_ptr<ScopedUnprotect::Unprotect> Protect = ScopedUnprotect::UnprotectSectionOrFullModule( GetModuleHandle( nullptr ), ".text" );
 
 	// Replaced custom CMemoryHeap with regular CRT functions (like in GTA)
