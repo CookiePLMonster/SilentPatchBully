@@ -297,7 +297,7 @@ void InjectHooks()
 
 		auto movEcxEdi = []( uintptr_t& addr )
 		{
-			Patch( addr, { 0x8B, 0xD7 } );
+			Patch( addr, { 0x8B, 0xCF } );
 			addr += 2;
 		};
 
