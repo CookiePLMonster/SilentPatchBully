@@ -19,6 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemoryMgr.h" />
+    <ClInclude Include="PoolsBully.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SilentPatch.rc" />
