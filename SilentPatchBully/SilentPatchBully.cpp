@@ -6,6 +6,7 @@
 
 #include <windows.h>
 #include "MemoryMgr.h"
+#include "PoolsBully.h"
 
 #include <cassert>
 
@@ -247,6 +248,292 @@ void InjectHooks()
 	Nop( 0x6FC94F, 2 );
 	Nop( 0x6FC97C, 2 );
 	Nop( 0x6FCE91, 2 );
+
+
+	// Fixes for CBasePool misuse (object/projectile pools)
+	{
+		// Poor man's jitasm ;)
+		auto pushEax = []( uintptr_t& addr )
+		{
+			Patch<uint8_t>( addr, 0x50 );
+			addr += 1;
+		};
+
+		auto pushEbx = []( uintptr_t& addr )
+		{
+			Patch<uint8_t>( addr, 0x53 );
+			addr += 1;
+		};
+
+		auto pushEsi = []( uintptr_t& addr )
+		{
+			Patch<uint8_t>( addr, 0x56 );
+			addr += 1;
+		};
+
+		auto pushEdi = []( uintptr_t& addr )
+		{
+			Patch<uint8_t>( addr, 0x57 );
+			addr += 1;
+		};
+
+		auto movEcxEbx = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xCB } );
+			addr += 2;
+		};
+
+		auto movEcxEbp = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xCD } );
+			addr += 2;
+		};
+
+		auto movEcxEsi = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xCE } );
+			addr += 2;
+		};
+
+		auto movEcxEdi = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xD7 } );
+			addr += 2;
+		};
+
+		auto movEsiEax = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xF0 } );
+			addr += 2;
+		};
+
+		auto movEdiEax = []( uintptr_t& addr )
+		{
+			Patch( addr, { 0x8B, 0xF8 } );
+			addr += 2;
+		};
+
+		auto call = []( uintptr_t& addr, auto dest )
+		{
+			InjectHook( addr, dest, PATCH_CALL );
+			addr += 5;
+		};
+
+		auto jmp = []( uintptr_t& addr, uintptr_t dest )
+		{
+			const ptrdiff_t offset = dest - (addr+2);
+			if ( offset >= INT8_MIN && offset <= INT8_MAX )
+			{
+				Patch( addr, { 0xEB, static_cast<uint8_t>(offset) } );
+				addr += 2;
+			}
+			else
+			{
+				InjectHook( addr, dest );
+				addr += 5;
+			}
+		};
+
+		InjectHook( 0x435BD0, &CBasePool::GetSlotWithLinked, PATCH_JUMP );
+		InjectHook( 0x436B90, &CBasePool::GetSlotWithLinkedWrapper, PATCH_JUMP );
+
+		uintptr_t address;
+
+		address = 0x4378D0;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x437901 );
+
+		address = 0x437A18;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x437A59 );
+
+		address = 0x437AA4;
+		pushEsi( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x437AD3 );
+
+		address = 0x44A4F6;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x44A527 );
+
+		address = 0x450A99;
+		pushEsi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x450AC5 );
+
+		address = 0x45E72B;
+		pushEsi( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x45E757 );
+
+		address = 0x49E0D4;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x49E109 );
+
+		address = 0x49E489;
+		pushEbx( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x49E4B8 );
+
+		address = 0x4CFE11;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4CFE43 );
+
+		address = 0x4CFE91;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4CFEC3 );
+
+		address = 0x4CFF24;
+		pushEbx( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4CFEC3 );
+	
+		address = 0x4D0138;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4D0169 );
+
+		address = 0x4D01A0;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4D01D1 );
+	
+		address = 0x4D0211;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4D0243 );
+
+		address = 0x4D02B0;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x4D02E2 );
+
+		address = 0x4D0350;
+		pushEsi( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x4D037F );
+
+		address = 0x5309A6;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x5309D5 );
+
+		address = 0x532446;
+		pushEsi( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x532472 );
+
+		address = 0x5332DA;
+		pushEbx( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x53330C );
+
+		address = 0x5BCE62;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEsiEax( address );
+		jmp( address, 0x5BCE97 );
+
+		address = 0x5C2642;
+		pushEbx( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x5C2679 );
+
+		address = 0x5C2770;
+		pushEbx( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x5C27A7 );
+
+		address = 0x5C2FC6;
+		pushEdi( address );
+		movEcxEsi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x5C2FF3 );
+
+		address = 0x5C31F0;
+		pushEdi( address );
+		movEcxEsi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x5C3220 );
+
+		address = 0x5C3280;
+		pushEsi( address );
+		movEcxEdi( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		jmp( address, 0x5C32AF );
+
+		address = 0x5C33D6;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x5C3407 );
+
+		address = 0x5C4D91;
+		pushEdi( address );
+		movEcxEbp( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x5C4DC3 );
+
+		address = 0x677206;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x67722E );
+
+		address = 0x67C1AD;
+		pushEdi( address );
+		movEcxEbx( address );
+		call( address, &CBasePool::GetSlotWithLinkedWrapper );
+		movEdiEax( address );
+		jmp( address, 0x67C1F2 );
+	}
 }
 
 static void ProcHook()
