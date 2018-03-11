@@ -534,6 +534,9 @@ void InjectHooks()
 		movEdiEax( address );
 		jmp( address, 0x67C1F2 );
 	}
+
+	// Don't fail if call to CoInitializeEx didn't return S_TRUE (maybe something else called CoInitializeEx on us already)
+	Nop( 0x5AE2B4, 6 );
 }
 
 static void ProcHook()
