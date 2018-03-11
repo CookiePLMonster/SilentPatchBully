@@ -411,7 +411,7 @@ void InjectHooks()
 		movEcxEdi( address );
 		call( address, &CBasePool::GetSlotWithLinkedWrapper );
 		movEsiEax( address );
-		jmp( address, 0x4CFEC3 );
+		jmp( address, 0x4CFF59 );
 	
 		address = 0x4D0138;
 		pushEdi( address );
