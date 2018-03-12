@@ -30,6 +30,8 @@
 
 static HINSTANCE hDLLModule;
 
+void InjectFixedD3DXFuncs();
+
 namespace FixedAllocators
 {
 	void InitMemoryMgr()
@@ -273,6 +275,10 @@ void InjectHooks()
 	wchar_t			wcModulePath[MAX_PATH];
 	GetModuleFileNameW(hDLLModule, wcModulePath, _countof(wcModulePath) - 3); // Minus max required space for extension
 	PathRenameExtensionW(wcModulePath, L".ini");
+
+	// Fixes to make the game fully large address aware
+	// While normally /LARGEADDRESSAWARE isn't enabled for the game, it may ease debugging
+	InjectFixedD3DXFuncs();
 
 	// Replaced custom CMemoryHeap with regular CRT functions (like in GTA)
 	{
