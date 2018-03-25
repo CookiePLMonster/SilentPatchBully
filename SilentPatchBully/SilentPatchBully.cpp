@@ -24,6 +24,9 @@
 
 #endif
 
+#define STRINGIZE2(s) #s
+#define STRINGIZE(s) STRINGIZE2(s)
+
 
 static HINSTANCE hDLLModule;
 
@@ -537,6 +540,10 @@ void InjectHooks()
 
 	// Don't fail if call to CoInitializeEx didn't return S_TRUE (maybe something else called CoInitializeEx on us already)
 	Nop( 0x5AE2B4, 6 );
+
+	
+	// Version number with SP build in main menu
+	Patch<const char*>( 0x6A69EA + 1, "%1.3f SP Build " STRINGIZE(SILENTPATCH_REVISION_ID) );
 }
 
 static void ProcHook()
