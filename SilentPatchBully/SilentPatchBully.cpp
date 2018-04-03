@@ -513,28 +513,27 @@ void InjectHooks()
 		pushEdi( address );
 		movEcxEbx( address );
 		call( address, &CBasePool::GetSlotWithLinkedWrapper );
-		movEdiEax( address );
+		movEsiEax( address );
 		jmp( address, 0x5C3407 );
 
 		address = 0x5C4D91;
 		pushEdi( address );
 		movEcxEbp( address );
 		call( address, &CBasePool::GetSlotWithLinkedWrapper );
-		movEdiEax( address );
+		movEsiEax( address );
 		jmp( address, 0x5C4DC3 );
 
 		address = 0x677206;
 		pushEdi( address );
 		movEcxEbx( address );
 		call( address, &CBasePool::GetSlotWithLinkedWrapper );
-		movEdiEax( address );
 		jmp( address, 0x67722E );
 
 		address = 0x67C1AD;
 		pushEdi( address );
 		movEcxEbx( address );
 		call( address, &CBasePool::GetSlotWithLinkedWrapper );
-		movEdiEax( address );
+		movEsiEax( address );
 		jmp( address, 0x67C1F2 );
 	}
 
