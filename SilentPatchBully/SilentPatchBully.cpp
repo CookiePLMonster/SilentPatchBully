@@ -332,7 +332,7 @@ void InjectHooks()
 			}
 			else
 			{
-				InjectHook( addr, dest );
+				InjectHook( addr, dest, PATCH_JUMP );
 				addr += 5;
 			}
 		};
