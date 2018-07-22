@@ -635,7 +635,22 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 	if ( fdwReason == DLL_PROCESS_ATTACH )
 	{
 		hDLLModule = hinstDLL;
-		InstallHooks();
 	}
 	return TRUE;
+}
+
+extern "C" __declspec(dllexport)
+uint32_t GetBuildNumber()
+{
+	return (SILENTPATCH_REVISION_ID << 8) | SILENTPATCH_BUILD_ID;
+}
+
+extern "C"
+{
+	static LONG InitCount = 0;
+	__declspec(dllexport) void InitializeASI()
+	{
+		if ( _InterlockedCompareExchange( &InitCount, 1, 0 ) != 0 ) return;
+		InstallHooks();
+	}
 }
