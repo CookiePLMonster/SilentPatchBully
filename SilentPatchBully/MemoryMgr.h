@@ -64,38 +64,53 @@ namespace Memory
 	} while ( --count != 0 ); }
 #endif
 
-	template<typename AT, typename HT>
-	inline void		InjectHook(AT address, HT hook)
+	template<typename Var, typename AT>
+	inline void		WriteOffsetValue(AT address, Var var)
 	{
-		intptr_t		dwHook;
-		_asm
+		union member_cast
 		{
-			mov		eax, hook
-			mov		dwHook, eax
-		}
+			intptr_t addr;
+			Var varPtr;
+		} cast;
+		static_assert( sizeof(cast.addr) == sizeof(cast.varPtr), "member_cast failure!" );
+		cast.varPtr = var;
 
-		*(ptrdiff_t*)((intptr_t)address + 1) = dwHook - (intptr_t)address - 5;
+		intptr_t dstAddr = (intptr_t)address;
+		*(int32_t*)dstAddr = static_cast<int32_t>(cast.addr - dstAddr - 4);
 	}
 
-	template<typename AT, typename HT>
-	inline void		InjectHook(AT address, HT hook, unsigned int nType)
+	template<typename Var, typename AT>
+	inline void		ReadOffsetValue(AT address, Var& var)
 	{
-		intptr_t		dwHook;
-		_asm
+		union member_cast
 		{
-			mov		eax, hook
-			mov		dwHook, eax
-		}
+			intptr_t addr;
+			Var varPtr;
+		} cast;
+		static_assert( sizeof(cast.addr) == sizeof(cast.varPtr), "member_cast failure!" );
 
+		intptr_t srcAddr = (intptr_t)address;
+		cast.addr = srcAddr + 4 + *(int32_t*)srcAddr;
+		var = cast.varPtr;
+	}
+
+	template<typename AT, typename Func>
+	inline void		InjectHook(AT address, Func hook)
+	{
+		WriteOffsetValue( (intptr_t)address + 1, hook );
+	}
+
+	template<typename AT, typename Func>
+	inline void		InjectHook(AT address, Func hook, unsigned int nType)
+	{
 		*(uint8_t*)address = nType == PATCH_JUMP ? 0xE9 : 0xE8;
-
-		*(ptrdiff_t*)((intptr_t)address + 1) = dwHook - (intptr_t)address - 5;
+		InjectHook(address, hook);
 	}
 
 	template<typename Func, typename AT>
 	inline void		ReadCall(AT address, Func& func)
 	{
-		func = Func(*(ptrdiff_t*)((intptr_t)address+1) + (intptr_t)address + 5);
+		ReadOffsetValue( (intptr_t)address+1, func );
 	}
 
 	template<typename AT>
@@ -217,9 +232,9 @@ namespace Memory
 		{
 			DWORD		dwProtect[2];
 
-			VirtualProtect((void*)((DWORD)address + 1), 4, PAGE_EXECUTE_READWRITE, &dwProtect[0]);
+			VirtualProtect((void*)((DWORD_PTR)address + 1), 4, PAGE_EXECUTE_READWRITE, &dwProtect[0]);
 			Memory::InjectHook( address, hook );
-			VirtualProtect((void*)((DWORD)address + 1), 4, dwProtect[0], &dwProtect[1]);
+			VirtualProtect((void*)((DWORD_PTR)address + 1), 4, dwProtect[0], &dwProtect[1]);
 		}
 
 		template<typename AT, typename HT>
