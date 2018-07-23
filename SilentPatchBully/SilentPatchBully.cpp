@@ -714,7 +714,7 @@ void InjectHooks()
 	}
 
 	// Don't call RwFrameDestroy from CameraDestroy (crashes for some reason)
-	Nop( 0x5EF9BE, 5 );
+	Patch<uint8_t>( 0x5EF954, 0xEB );
 }
 
 static void ProcHook()
