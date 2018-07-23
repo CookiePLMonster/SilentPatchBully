@@ -712,6 +712,9 @@ void InjectHooks()
 		// TEMPORARY DEBUG
 		//InjectHook( 0x5F0F90, ReleaseTextureDebug, PATCH_JUMP );
 	}
+
+	// Don't call RwFrameDestroy from CameraDestroy (crashes for some reason)
+	Nop( 0x5EF9BE, 5 );
 }
 
 static void ProcHook()
