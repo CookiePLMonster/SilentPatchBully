@@ -161,6 +161,10 @@ namespace FrameTimingFix
 
 }
 
+#ifdef _DEBUG
+#include <intrin.h>
+#endif
+
 namespace DoubleFreeOnExitFix
 {
 	class UnkInnerStruct
@@ -212,6 +216,38 @@ namespace DoubleFreeOnExitFix
 			(*pPtr)->ReleaseTexture();
 			*pPtr = nullptr;
 		}
+	}
+
+	void RwTextureAddRef( UnkInnerStruct* ptr )
+	{
+		_InterlockedIncrement( &ptr->refCount );
+	}
+
+	uint32_t ReleaseTextureDebug( UnkInnerStruct* ptr )
+	{
+#ifndef _DEBUG
+		ptr->ReleaseTexture();
+#else
+		assert( ptr->refCount > 0 );
+		void** mem = reinterpret_cast<void**>(ptr);
+		if ( _InterlockedDecrement( &ptr->refCount ) == 0 )
+		{
+			*mem = _ReturnAddress();
+		}
+#endif
+		return 1;
+	}
+
+	static void (*orgPopTimer)();
+	void PopTimer_AddMissingReferences()
+	{
+		UnkInnerStruct** texture = (UnkInnerStruct**)0xC66E40;
+		for ( size_t i = 0; i < 8; i++ )
+		{
+			RwTextureAddRef( texture[i] );
+		}
+
+		orgPopTimer();
 	}
 };
 
@@ -602,13 +638,15 @@ void InjectHooks()
 
 
 	// Fix heap corruptions on exit
-	InjectHook( 0x519090, DoubleFreeOnExitFix::ReleaseStruct, PATCH_JUMP );
-
-	Patch<uint8_t>( 0x55E0E2, 0x56 ); // push esi
-	InjectHook( 0x55E0E3, DoubleFreeOnExitFix::ReleaseTextureAndNull );
-
-	// Series of identical calls to patch...
 	{
+		using namespace DoubleFreeOnExitFix;
+
+		InjectHook( 0x519090, ReleaseStruct, PATCH_JUMP );
+
+		Patch<uint8_t>( 0x55E0E2, 0x56 ); // push esi
+		InjectHook( 0x55E0E3, ReleaseTextureAndNull );
+
+		// Series of identical calls to patch...
 		auto fixEax = []( uintptr_t& addr, uintptr_t extra = 0 )
 		{
 			Patch( addr, { 0xB8 } );
@@ -665,6 +703,14 @@ void InjectHooks()
 
 		fixEdx( address );
 		fixEax( address );
+
+
+		// Missing reference adding...
+		ReadCall( 0x514D98, orgPopTimer );
+		InjectHook( 0x514D98, PopTimer_AddMissingReferences );
+
+		// TEMPORARY DEBUG
+		//InjectHook( 0x5F0F90, ReleaseTextureDebug, PATCH_JUMP );
 	}
 }
 
