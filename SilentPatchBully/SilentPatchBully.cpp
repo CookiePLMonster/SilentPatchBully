@@ -47,7 +47,7 @@ namespace FixedAllocators
 	static constexpr size_t MEMORY_EPILOGUE_SIZE = sizeof(uint32_t);
 	static constexpr size_t MEMORY_CANARIES_TOTAL_SIZE = MEMORY_PROLOGUE_SIZE + MEMORY_EPILOGUE_SIZE;
 
-	static constexpr uint32_t MEMORY_CANARY = 0xFDFDFDFD;
+	static constexpr uint32_t MEMORY_CANARY = 0xDFDFDFDF;
 #endif
 
 	void* MemoryMgrMalloc( size_t size )
@@ -87,11 +87,13 @@ namespace FixedAllocators
 			uintptr_t mem = uintptr_t(data);
 			uint32_t startCanary = *(uint32_t*)(mem - sizeof(uint32_t));
 			assert( startCanary == MEMORY_CANARY );
+			*(uint32_t*)(mem - sizeof(uint32_t)) = ~MEMORY_CANARY;
 
 			// If start canary is valid, we can check the end canary (since size is probably valid too)
 			size_t size = *(size_t*)(mem - MEMORY_PROLOGUE_SIZE);
 			uint32_t endCanary = *(uint32_t*)(mem + size);
 			assert( endCanary == MEMORY_CANARY );
+			*(uint32_t*)(mem + size) = ~MEMORY_CANARY;
 
 			free( (void*)(mem - MEMORY_PROLOGUE_SIZE) );
 #else
