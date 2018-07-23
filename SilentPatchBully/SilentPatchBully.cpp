@@ -161,6 +161,60 @@ namespace FrameTimingFix
 
 }
 
+namespace DoubleFreeOnExitFix
+{
+	class UnkInnerStruct
+	{
+	public:
+		virtual void Unknown() = 0;
+		virtual void Release() = 0;
+
+		LONG refCount;
+
+	public:
+		void ReleaseTexture()
+		{
+			if ( _InterlockedDecrement( &refCount ) == 0 )
+			{
+				Release();
+			}
+		}
+	};
+
+	class UnkStruct
+	{
+	public:
+		uint8_t		__pad[52];
+		UnkInnerStruct* m_pInner;
+	};
+
+	const auto FreeStruct = (void(*)(UnkStruct* ptr))0x752380;
+	uint32_t ReleaseStruct( UnkStruct* ptr )
+	{
+		if ( ptr == nullptr ) return 1;
+		auto* inner = ptr->m_pInner;
+		if ( inner == nullptr )
+		{
+			FreeStruct( ptr );
+			return 1;
+		}
+
+		ptr->m_pInner = nullptr;
+		inner->ReleaseTexture();
+
+		return 1;
+	}
+
+	void ReleaseTextureAndNull( UnkInnerStruct** pPtr )
+	{
+		if ( *pPtr != nullptr )
+		{
+			(*pPtr)->ReleaseTexture();
+			*pPtr = nullptr;
+		}
+	}
+};
+
 void InjectHooks()
 {
 	using namespace Memory;
@@ -545,6 +599,73 @@ void InjectHooks()
 	
 	// Version number with SP build in main menu
 	Patch<const char*>( 0x6A69EA + 1, "%1.3f SP Build " STRINGIZE(SILENTPATCH_REVISION_ID) );
+
+
+	// Fix heap corruptions on exit
+	InjectHook( 0x519090, DoubleFreeOnExitFix::ReleaseStruct, PATCH_JUMP );
+
+	Patch<uint8_t>( 0x55E0E2, 0x56 ); // push esi
+	InjectHook( 0x55E0E3, DoubleFreeOnExitFix::ReleaseTextureAndNull );
+
+	// Series of identical calls to patch...
+	{
+		auto fixEax = []( uintptr_t& addr, uintptr_t extra = 0 )
+		{
+			Patch( addr, { 0xB8 } );
+			addr += 5 + 1 + extra;
+			InjectHook( addr, DoubleFreeOnExitFix::ReleaseTextureAndNull );
+			addr += 5;
+		};
+
+		auto fixEcx = []( uintptr_t& addr, uintptr_t extra = 0 )
+		{
+			Patch( addr, { 0x90, 0xB9 } );
+			addr += 6 + 1 + extra;
+			InjectHook( addr, DoubleFreeOnExitFix::ReleaseTextureAndNull );
+			addr += 5;
+		};
+
+		auto fixEdx = []( uintptr_t& addr, uintptr_t extra = 0 )
+		{
+			Patch( addr, { 0x90, 0xBA } );
+			addr += 6 + 1 + extra;
+			InjectHook( addr, DoubleFreeOnExitFix::ReleaseTextureAndNull );
+			addr += 5;
+		};
+
+		uintptr_t address = 0x528622;
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		// add esp in code...
+		fixEdx( address );
+		fixEax( address, 3 );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+		fixEcx( address );
+
+		fixEdx( address );
+		fixEax( address );
+	}
 }
 
 static void ProcHook()
