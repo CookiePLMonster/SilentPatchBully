@@ -5,7 +5,7 @@
 #define _WIN32_WINNT 0x0502
 
 #include <windows.h>
-#include "MemoryMgr.h"
+#include "Utils/MemoryMgr.h"
 #include "PoolsBully.h"
 
 #include <cassert>
