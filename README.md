@@ -36,4 +36,4 @@ you were doing when the game crashes) in the Issues page.
 ## Credits
 
 * [P3ti](https://github.com/P3ti) - collision loading fix
-* [quinnsane](https://www.youtube.com/quinnsane) - testing, overall support
+* [amzy](https://www.twitch.tv/amzy) - testing, overall support
