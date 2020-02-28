@@ -121,15 +121,6 @@ namespace FixedAllocators
 		}
 	}
 
-	void OperatorDelete_Safe( void** pData )
-	{
-		if ( *pData != nullptr )
-		{
-			MemoryMgrFree( *pData );
-			*pData = nullptr;
-		}
-	}
-
 	void __stdcall MemoryHeap_Free( void* data )
 	{
 		MemoryMgrFree( data );
@@ -148,7 +139,18 @@ namespace FixedAllocators
 
 };
 
-
+namespace PedTypeShutdown
+{
+	static void (*orgOperatorDelete)(void* data);
+	void OperatorDelete_Safe( void** pData )
+	{
+		if ( *pData != nullptr )
+		{
+			orgOperatorDelete( *pData );
+			*pData = nullptr;
+		}
+	}
+}
 
 namespace FrameTimingFix
 {
@@ -275,6 +277,7 @@ void InjectHooks()
 	PathRenameExtensionW(wcModulePath, L".ini");
 
 	// Replaced custom CMemoryHeap with regular CRT functions (like in GTA)
+	if ( const int INIoption = GetPrivateProfileIntW(L"SilentPatch", L"CustomMemoryMgr", 0, wcModulePath); INIoption != 0 )
 	{
 		using namespace FixedAllocators;
 
@@ -292,17 +295,22 @@ void InjectHooks()
 
 		InjectHook( 0x5EEDD0, MemoryHeap_GetMemoryUsed, PATCH_JUMP );
 
-		// Fixed CPedType::Shutdown (zero pointers to prevent a double free)
-		Patch<uint8_t>( 0x499CD8, 0x56 );
-		InjectHook( 0x499CD9, OperatorDelete_Safe );
-
-		// Don't call cSCREAMAudioManager::CleanupAfterMission from cSCREAMAudioManager::Terminate (used already freed memory)
-		Nop( 0x5963C3, 5 );
-
 		// Write a pointer to fake 'upper memory bound' so CStreaming::MakeSpaceFor is pleased
 		static const uintptr_t FAKE_MAX_MEMORY = 0x7FFFFFFF;
 		Patch( 0xD141A8, &FAKE_MAX_MEMORY );
 	}
+
+	// Fixed CPedType::Shutdown (zero pointers to prevent a double free)
+	{
+		using namespace PedTypeShutdown;
+
+		Patch<uint8_t>( 0x499CD8, 0x56 );
+		ReadCall( 0x499CD9, orgOperatorDelete );
+		InjectHook( 0x499CD9, OperatorDelete_Safe );
+	}
+
+	// Don't call cSCREAMAudioManager::CleanupAfterMission from cSCREAMAudioManager::Terminate (used already freed memory)
+	Nop( 0x5963C3, 5 );
 
 
 	// Fixed a crash in CFileLoader::LoadCollisionModel occuring with a replaced allocator
