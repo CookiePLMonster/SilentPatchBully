@@ -253,6 +253,152 @@ namespace DoubleFreeOnExitFix
 	}
 };
 
+// ============= Fix use-after-free when sndStream gets released before overlapped read finishes =============
+class sndStream // Documented by P3ti
+{
+private:
+	struct FaderType
+	{
+		float _0;
+		float _4;
+		float _8;
+		DWORD _12;
+	};
+
+	DWORD state;
+	DWORD _4;
+	DWORD _8;
+	DWORD _12;
+	DWORD _16;
+	float mode;
+	float _24;
+	DWORD _28;
+	FaderType fader;
+	BYTE _48;
+	BYTE _49;
+	BYTE _50;
+	BYTE _51;
+	float _52;
+	DWORD _56;
+	DWORD _60;
+	DWORD _64;
+	float pos_x;
+	float pos_y;
+	float pos_z;
+	DWORD _80;
+	DWORD waveBankId;
+	DWORD soundBankId;
+	DWORD soundCueId;
+	DWORD _96;
+	DWORD buffer;
+	HANDLE file;
+	OVERLAPPED overlapped;
+	DWORD playListId;
+	DWORD fileReadStatus;
+	DWORD _136;
+	DWORD offset;
+	BYTE _144;
+	BYTE _145;
+	BYTE _146;
+	BYTE _147;
+	DWORD _148;
+	BYTE _152;
+	BYTE _153;
+	BYTE _154;
+	BYTE _155;
+	DWORD _156;
+	DWORD _160;
+	DWORD _164;
+	DWORD _168;
+	DWORD _172;
+	DWORD _176;
+	DWORD _180;
+	DWORD _184;
+	DWORD _188;
+	DWORD _192;
+	DWORD _196;
+	DWORD _200;
+	DWORD _204;
+	DWORD _208;
+	DWORD _212;
+	DWORD _216;
+	DWORD _220;
+	DWORD _224;
+	DWORD _228;
+	DWORD _232;
+	DWORD _236;
+	DWORD _240;
+	DWORD _244;
+	DWORD _248;
+	DWORD _252;
+	DWORD _256;
+	DWORD _260;
+	DWORD _264;
+	DWORD _268;
+	DWORD _272;
+	DWORD _276;
+	DWORD _280;
+	DWORD _284;
+	DWORD _288;
+	DWORD _292;
+	DWORD _296;
+	DWORD _300;
+	DWORD _304;
+	DWORD _308;
+	DWORD _312;
+	DWORD _316;
+	DWORD _320;
+	DWORD _324;
+	DWORD _328;
+	DWORD _332;
+	DWORD _336;
+	DWORD _340;
+	DWORD _344;
+	DWORD _348;
+	DWORD _352;
+	DWORD _356;
+	DWORD _360;
+	DWORD _364;
+	DWORD _368;
+	DWORD _372;
+	DWORD _376;
+	DWORD _380;
+	DWORD _384;
+	DWORD _388;
+	DWORD _392;
+	DWORD _396;
+	DWORD _400;
+	DWORD _404;
+	DWORD _408;
+	DWORD _412;
+
+public:
+	static inline void (sndStream::*orgCleanupStreamInfo)();
+	void CleanupStreamInfo()
+	{
+		std::invoke( orgCleanupStreamInfo, this );
+	}
+
+	void CleanupStreamInfo_SilentPatch()
+	{
+		if ( fileReadStatus == 2 || fileReadStatus == 3 )
+		{
+			BOOL result = CancelIoEx( file, &overlapped );
+			if ( result != FALSE )
+			{
+				DWORD numberOfBytesTransferred;
+				result = GetOverlappedResult( file, &overlapped, &numberOfBytesTransferred, TRUE );
+				assert( result != FALSE );
+			}
+		}
+
+		CleanupStreamInfo();
+	}
+};
+
+static_assert(sizeof(sndStream) == 0x1A0, "Wrong size: sndStream");
+
+
 void InjectHooks()
 {
 	using namespace Memory;
@@ -723,6 +869,18 @@ void InjectHooks()
 
 	// Don't call RwFrameDestroy from CameraDestroy (crashes for some reason)
 	Patch<uint8_t>( 0x5EF954, 0xEB );
+
+
+	// Fix use-after-free when sndStream gets released before overlapped read finishes
+	{
+		ReadCall( 0x5A6EA9, sndStream::orgCleanupStreamInfo );
+		InjectHook( 0x5A6EA9, &sndStream::CleanupStreamInfo_SilentPatch );
+		InjectHook( 0x5A71D0, &sndStream::CleanupStreamInfo_SilentPatch );
+		InjectHook( 0x5A72D2, &sndStream::CleanupStreamInfo_SilentPatch );
+		InjectHook( 0x5A753F, &sndStream::CleanupStreamInfo_SilentPatch );
+		InjectHook( 0x5A79BF, &sndStream::CleanupStreamInfo_SilentPatch );
+		InjectHook( 0x5A7B21, &sndStream::CleanupStreamInfo_SilentPatch );
+	}
 }
 
 static void ProcHook()
