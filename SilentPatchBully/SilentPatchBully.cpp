@@ -392,6 +392,12 @@ public:
 			}
 		}
 
+		if ( overlapped.hEvent != nullptr )
+		{
+			CloseHandle( overlapped.hEvent );
+			overlapped.hEvent = nullptr;
+		}
+
 		CleanupStreamInfo();
 	}
 };
