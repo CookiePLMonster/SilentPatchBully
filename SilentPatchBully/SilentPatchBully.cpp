@@ -17,10 +17,12 @@
 #ifndef NDEBUG
 
 #define INCLUDE_MEMORY_CHECKS 1
+#define COMPILE_TEST_VERSION 0 // Timestamp instead of build ID in menu
 
 #else
 
 #define INCLUDE_MEMORY_CHECKS 0
+#define COMPILE_TEST_VERSION 0 
 
 #endif
 
@@ -794,7 +796,11 @@ void InjectHooks()
 
 	
 	// Version number with SP build in main menu
+#if COMPILE_TEST_VERSION
+	Patch<const char*>( 0x6A69EA + 1, "SP Test " __DATE__ " " __TIME__ );
+#else
 	Patch<const char*>( 0x6A69EA + 1, "%1.3f SP Build " STRINGIZE(SILENTPATCH_REVISION_ID) );
+#endif
 
 
 	// Fix heap corruptions on exit
