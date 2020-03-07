@@ -11,10 +11,17 @@ gameplay experience by improving frame pacing, as well as fixing a few other iss
 Fixes featured in this plugin:
 
 ### Crash and bug fixes
-* Crashes occuring on Windows 10 (and potentially on Windows 8.1 and other systems) have been fixed
-* Collision loading has been improved, fixing occasional crashes on initial game load
+* Collision loading code has been improved, fixing occasional crashes on initial game load
+* Fixed game's objects pool usage, fixing possible crashes
+* Fixed an occasional crash when starting Nutcrackin' or Music Class
+* Fixed numerous instances of memory corruption on game exit
+* Fixed an use-after-free in sound streaming code, causing a rare crash when talking to people
+* Fixed handle leaks in audio code, preventing handles from accumulating during the game
+* Fixed several memory leaks in audio code, preventing out of memory crashes during extended play sessions
+* Made memory manager workarounds toggleable via the INI file - disabled by default, to be removed in the future
 * Frame Limiter has been made much more precise, so the game should lock at exactly 30FPS now
- (as opposed to stock limiter being prone to dropping frames a lot)
+  (as opposed to stock limiter being prone to dropping frames a lot)
+* Fixed an issue where game would use more CPU than required when minimized
 
 ### Quality of life improvements
 * An option to change FPS cap has been added to SilentPatchBully.ini file (game defaults to 30FPS)
@@ -35,5 +42,5 @@ you were doing when the game crashes) in the Issues page.
 
 ## Credits
 
-* [P3ti](https://github.com/P3ti) - collision loading fix
+* [P3ti](https://github.com/P3ti) - co-developer
 * [amzy](https://www.twitch.tv/amzy) - testing, overall support
