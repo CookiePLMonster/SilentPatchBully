@@ -354,7 +354,7 @@ namespace SEALeaksFix
 	}
  
 	static inline DWORD (*MDXactCreateSoundBankCommand)(DWORD, DWORD, DWORD, DWORD);
-	DWORD MDXactCreateSoundBankWithManagedDataCommand(DWORD buffer, DWORD size, DWORD flags, DWORD alloc_attributes)
+	DWORD MDXactCreateSoundBankWithManagedDataCommand(DWORD buffer, DWORD size, DWORD /*flags*/, DWORD alloc_attributes)
 	{
 		return MDXactCreateSoundBankCommand(buffer, size, 1 /*XACT_FLAG_ENGINE_CREATE_MANAGEDATA*/, alloc_attributes);
 	}
@@ -370,8 +370,8 @@ namespace SEALeaksFix
  
 		DWORD pfnCreateInMemoryWaveBank = *(DWORD*)(*(DWORD*)pXactEngine + 0x28);
 		DWORD pXactWaveBank = NULL;
-		if((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateInMemoryWaveBank)(
-			pXactEngine, buffer, size, flags, alloc_attributes, &pXactWaveBank) == S_OK)
+		if(SUCCEEDED((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateInMemoryWaveBank)(
+			pXactEngine, buffer, size, flags, alloc_attributes, &pXactWaveBank)))
 		{
 			(*(void (__cdecl *)(DWORD))0x5AD810)(pXactWaveBank); // register ref counted wave bank
 			(*(void (__cdecl *)(int))0x5AD4D0)(id);
@@ -409,8 +409,8 @@ namespace SEALeaksFix
  
 		DWORD pfnCreateSoundBank = *(DWORD*)(*(DWORD*)pXactEngine + 0x24);
 		DWORD pXactSoundBank = NULL;
-		if((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateSoundBank)(
-			pXactEngine, buffer, size, flags, alloc_attributes, &pXactSoundBank) == S_OK)
+		if(SUCCEEDED((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateSoundBank)(
+			pXactEngine, buffer, size, flags, alloc_attributes, &pXactSoundBank)))
 		{
 			(*(void (__cdecl *)(DWORD))0x5AD8E0)(pXactSoundBank); // register ref counted sound bank
 			(*(void (__cdecl *)(int))0x5AD530)(id);
