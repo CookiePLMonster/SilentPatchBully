@@ -340,6 +340,104 @@ public:
  
 static_assert(sizeof(ScreamSoundBank) == 0x140, "Wrong size: ScreamSoundBank");
 
+// ============= Fix memory leaks in Scream sound setups =============
+namespace SEALeaksFix
+{
+	LPVOID RedirectMallocToCoTaskMemAlloc(SIZE_T size)
+	{
+		return CoTaskMemAlloc(size);
+	}
+ 
+	void RedirectFreeToCoTaskMemFree(LPVOID ptr)
+	{
+		CoTaskMemFree(ptr);
+	}
+ 
+	static inline DWORD (*MDXactCreateSoundBankCommand)(DWORD, DWORD, DWORD, DWORD);
+	DWORD MDXactCreateSoundBankWithManagedDataCommand(DWORD buffer, DWORD size, DWORD flags, DWORD alloc_attributes)
+	{
+		return MDXactCreateSoundBankCommand(buffer, size, 1 /*XACT_FLAG_ENGINE_CREATE_MANAGEDATA*/, alloc_attributes);
+	}
+ 
+	// When failing use CoTaskMemFree if it's managed
+	void MDXact_Manager_Internal_CreateInMemoryWaveBank(int id, LPVOID buffer, DWORD size, DWORD flags, DWORD alloc_attributes)
+	{
+		DWORD pXactEngine = *(DWORD*)0xCFACE0;
+		if(pXactEngine == NULL)
+		{
+			return;
+		}
+ 
+		DWORD pfnCreateInMemoryWaveBank = *(DWORD*)(*(DWORD*)pXactEngine + 0x28);
+		DWORD pXactWaveBank = NULL;
+		if((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateInMemoryWaveBank)(
+			pXactEngine, buffer, size, flags, alloc_attributes, &pXactWaveBank) == S_OK)
+		{
+			(*(void (__cdecl *)(DWORD))0x5AD810)(pXactWaveBank); // register ref counted wave bank
+			(*(void (__cdecl *)(int))0x5AD4D0)(id);
+			DWORD pMDXactWaveBank = (*(DWORD (__cdecl *)(DWORD))0x5EE830)(12); // MemoryMgrMalloc
+			if(pMDXactWaveBank)
+			{
+				// MDXact_WaveBank ctor
+				(*(DWORD (__thiscall *)(DWORD, DWORD, bool, int))0x5B0660)(pMDXactWaveBank, pXactWaveBank, false, id);
+			}
+			// NiTMap<int,MDXact_WaveBank *>::SetAt
+			(*(DWORD (__thiscall *)(DWORD, int, DWORD))0x8A5140)(*(DWORD*)0xCFACE4, id, pMDXactWaveBank);
+		}
+		else
+		{
+			if(buffer != NULL)
+			{
+				if(flags & 0x00000001) // XACT_FLAG_ENGINE_CREATE_MANAGEDATA
+					CoTaskMemFree(buffer);
+				else
+					(*(void (__cdecl *)(LPVOID))0x5EE940)(buffer); // MemoryMgrFree
+			}
+ 
+			(*(void (__cdecl *)(int))0x5AD5F0)(id); // remove shared data of wave bank
+		}
+	}
+ 
+	// Do not ignore XACT flags, when failing use CoTaskMemFree if it's managed
+	void MDXact_Manager_Internal_CreateSoundBank(int id, LPVOID buffer, DWORD size, DWORD flags, DWORD alloc_attributes)
+	{
+		DWORD pXactEngine = *(DWORD*)0xCFACE0;
+		if(pXactEngine == NULL)
+		{
+			return;
+		}
+ 
+		DWORD pfnCreateSoundBank = *(DWORD*)(*(DWORD*)pXactEngine + 0x24);
+		DWORD pXactSoundBank = NULL;
+		if((*(HRESULT (__stdcall *)(DWORD, LPVOID, DWORD, DWORD, DWORD, PDWORD))pfnCreateSoundBank)(
+			pXactEngine, buffer, size, flags, alloc_attributes, &pXactSoundBank) == S_OK)
+		{
+			(*(void (__cdecl *)(DWORD))0x5AD8E0)(pXactSoundBank); // register ref counted sound bank
+			(*(void (__cdecl *)(int))0x5AD530)(id);
+			DWORD pMDXactSoundBank = (*(DWORD (__cdecl *)(DWORD))0x5EE830)(24); // MemoryMgrMalloc
+			if(pMDXactSoundBank)
+			{
+				// MDXact_SoundBank ctor
+				(*(DWORD (__thiscall *)(DWORD, DWORD, int))0x5B04E0)(pMDXactSoundBank, pXactSoundBank, id);
+			}
+			// NiTMap<int,MDXact_SoundBank *>::SetAt
+			(*(DWORD (__thiscall *)(DWORD, int, DWORD))0x8A5140)(*(DWORD*)0xCFACE8, id, pMDXactSoundBank);
+		}
+		else
+		{
+			if(buffer != NULL)
+			{
+				if(flags & 0x00000001) // XACT_FLAG_ENGINE_CREATE_MANAGEDATA
+					CoTaskMemFree(buffer);
+				else
+					(*(void (__cdecl *)(LPVOID))0x5EE940)(buffer); // MemoryMgrFree
+			}
+   
+			(*(void (__cdecl *)(int))0x5AD660)(id); // remove shared data of sound bank
+		}
+	}
+};
+
 
 void InjectHooks()
 {
@@ -834,6 +932,27 @@ void InjectHooks()
 		InjectHook( 0x5A98D5, &ScreamSoundBank::Kill_SilentPatch );
 		InjectHook( 0x5AA13F, &ScreamSoundBank::Kill_SilentPatch );
 		InjectHook( 0x5AA462, &ScreamSoundBank::Kill_SilentPatch );
+	}
+
+
+	// Fix memory leaks in Scream sound setups by allowing XACT to take ownership of allocations,
+	// as it seemingly was intended to
+	{
+		using namespace SEALeaksFix;
+
+		// Do not ignore XACT flags, when failing use CoTaskMemFree if it's managed
+		InjectHook( 0x5AE690, MDXact_Manager_Internal_CreateInMemoryWaveBank, PATCH_JUMP );
+		InjectHook( 0x5AE590, MDXact_Manager_Internal_CreateSoundBank, PATCH_JUMP );
+ 
+		// In ScreamSoundBank::SetupSEA use CoTaskMemAlloc & CoTaskMemFree for XACT buffer
+		InjectHook( 0x5A990D, RedirectMallocToCoTaskMemAlloc );
+		InjectHook( 0x5A99FB, RedirectMallocToCoTaskMemAlloc );
+		InjectHook( 0x5A9B32, RedirectFreeToCoTaskMemFree );
+ 
+		// Let XACT manage memory of SEA wave and sound banks
+		Patch<int8_t>( 0x5A99AF, 1 );
+		ReadCall( 0x5A9A1F, MDXactCreateSoundBankCommand );
+		InjectHook( 0x5A9A1F, MDXactCreateSoundBankWithManagedDataCommand );
 	}
 }
 
