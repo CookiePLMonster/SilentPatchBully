@@ -24,17 +24,15 @@ Fixes featured in this plugin:
 * Fixed an issue where game would use more CPU than required when minimized
 
 ### Quality of life improvements
-* An option to change FPS cap has been added to SilentPatchBully.ini file (game defaults to 30FPS)
+* An option to change FPS cap has been added to SilentPatchBully.ini file (game defaults to 30FPS) with an in game button combo to toggle between 30 fps and 60 fps (SELECT + DPAD DOWN) or F11 on your keyboard.
+* Automatic settings configuration (game defaults to 1080p with High Shadows), see .ini file comments for more settings.
 * **FILE_FLAG_NO_BUFFERING** flag has been removed from IMG reading functions - potentially speeding up streaming
 
 ## Compilation requirements
 
-Project is supposed to build out of the box with Visual Studio 2017.
+Project is supposed to build out of the box with Visual Studio 2022.
 
 ## Submitting feedback
-
-Since this is a public beta release, you may encounter crashes. Because of this, MiniDumper utility has
-been shipped together with SilentPatch. In case of a crash, a .dmp file will be created in your game directory.
 
 If you want to report it as a bug (any feedback is very much appreciated), first **ENSURE YOU HAVE AN UNMODDED GAME**
 (texture mods are fine, scripts - not so much). You can report a bug (.dmp file + a brief explanation on what
@@ -43,4 +41,5 @@ you were doing when the game crashes) in the Issues page.
 ## Credits
 
 * [P3ti](https://github.com/P3ti) - co-developer
+* [TroyWarez](https://github.com/TroyWarez) - co-developer
 * [amzy](https://www.twitch.tv/amzy) - testing, overall support
