@@ -438,6 +438,18 @@ namespace SEALeaksFix
 	}
 };
 
+// ============= Skip XACT init if VSFilter.dll is present (codec pack crash) =============
+namespace CodecCompatFix
+{
+	static char __cdecl XactInitGuard(void* Src, int Size)
+	{
+		if(GetModuleHandleW(L"VSFilter.dll") != nullptr)
+		{
+			return 0; // skip audio init, prevent XAudio2 AV
+		}
+		return ((char(__cdecl*)(void*, int))0x5AE2A0)(Src, Size);
+	}
+}
 
 void InjectHooks()
 {
@@ -953,6 +965,16 @@ void InjectHooks()
 		Patch<int8_t>( 0x5A99AF, 1 );
 		ReadCall( 0x5A9A1F, MDXactCreateSoundBankCommand );
 		InjectHook( 0x5A9A1F, MDXactCreateSoundBankWithManagedDataCommand );
+	}
+
+	// Skip XACT audio initialization if VSFilter.dll (DirectVobSub) is loaded.
+	// FreeCodecPack/K-Lite's VSFilter hooks the DirectShow filter graph and causes
+	// XAudio2_1.dll to AV during engine creation (null pointer read at ~0x22768).
+	// The game handles audio-init failure gracefully: it shows SOUND_INIT_FAILED_MSG
+	// and continues without audio.
+	{
+		using namespace CodecCompatFix;
+		InjectHook( 0x5AF130, XactInitGuard, PATCH_JUMP );
 	}
 }
 
