@@ -6,6 +6,7 @@
 
 #include <windows.h>
 #include "Utils/MemoryMgr.h"
+#include "Utils/ScopedUnprotect.hpp"
 #include "PoolsBully.h"
 
 #include <cassert>
@@ -455,7 +456,7 @@ void InjectHooks()
 		return;
 	}
 
-	std::unique_ptr<ScopedUnprotect::Unprotect> Protect = ScopedUnprotect::UnprotectSectionOrFullModule( GetModuleHandle( nullptr ), ".text" );
+	auto Protect = ScopedUnprotect::SectionOrFullModule( GetModuleHandle( nullptr ), ".text" );
 
 	// Obtain a path to the ASI
 	wchar_t			wcModulePath[MAX_PATH];
@@ -467,19 +468,19 @@ void InjectHooks()
 	{
 		using namespace FixedAllocators;
 
-		InjectHook( 0x5EE630, InitMemoryMgr, PATCH_JUMP );
-		InjectHook( 0x5EE5A0, ShutDownMemoryMgr, PATCH_JUMP );		
-		InjectHook( 0x5EE830, MemoryMgrMalloc, PATCH_JUMP );
-		InjectHook( 0x5EE940, MemoryMgrFree, PATCH_JUMP );
-		InjectHook( 0x5EE9C0, RwMallocAlign, PATCH_JUMP );
+		InjectHook( 0x5EE630, InitMemoryMgr, HookType::Jump );
+		InjectHook( 0x5EE5A0, ShutDownMemoryMgr, HookType::Jump );		
+		InjectHook( 0x5EE830, MemoryMgrMalloc, HookType::Jump );
+		InjectHook( 0x5EE940, MemoryMgrFree, HookType::Jump );
+		InjectHook( 0x5EE9C0, RwMallocAlign, HookType::Jump );
 		// 0x5EEA50 - RwMemoryMgrMalloc - jumps to MemoryMgrMalloc
 		// 0x5EEA60 - RwMemoryMgrFree - jumps to MemoryMgrFree
-		InjectHook( 0x5EEA70, RwFreeAlign, PATCH_JUMP );
+		InjectHook( 0x5EEA70, RwFreeAlign, HookType::Jump );
 
-		InjectHook( 0x5EEEF0, MemoryHeap_Free, PATCH_JUMP );
-		InjectHook( 0x5EF4D0, MemoryHeap_MoveMemoryBully, PATCH_JUMP );
+		InjectHook( 0x5EEEF0, MemoryHeap_Free, HookType::Jump );
+		InjectHook( 0x5EF4D0, MemoryHeap_MoveMemoryBully, HookType::Jump );
 
-		InjectHook( 0x5EEDD0, MemoryHeap_GetMemoryUsed, PATCH_JUMP );
+		InjectHook( 0x5EEDD0, MemoryHeap_GetMemoryUsed, HookType::Jump );
 
 		// Write a pointer to fake 'upper memory bound' so CStreaming::MakeSpaceFor is pleased
 		static const uintptr_t FAKE_MAX_MEMORY = 0x7FFFFFFF;
@@ -604,7 +605,7 @@ void InjectHooks()
 
 		auto call = []( uintptr_t& addr, auto dest )
 		{
-			InjectHook( addr, dest, PATCH_CALL );
+			InjectHook( addr, dest, HookType::Call );
 			addr += 5;
 		};
 
@@ -618,13 +619,13 @@ void InjectHooks()
 			}
 			else
 			{
-				InjectHook( addr, dest, PATCH_JUMP );
+				InjectHook( addr, dest, HookType::Jump );
 				addr += 5;
 			}
 		};
 
-		InjectHook( 0x435BD0, &CBasePool::GetSlotWithLinked, PATCH_JUMP );
-		InjectHook( 0x436B90, &CBasePool::GetSlotWithLinkedWrapper, PATCH_JUMP );
+		InjectHook( 0x435BD0, &CBasePool::GetSlotWithLinked, HookType::Jump );
+		InjectHook( 0x436B90, &CBasePool::GetSlotWithLinkedWrapper, HookType::Jump );
 
 		uintptr_t address;
 
@@ -839,7 +840,7 @@ void InjectHooks()
 	{
 		using namespace DoubleFreeOnExitFix;
 
-		InjectHook( 0x519090, ReleaseStruct, PATCH_JUMP );
+		InjectHook( 0x519090, ReleaseStruct, HookType::Jump );
 
 		Patch<uint8_t>( 0x55E0E2, 0x56 ); // push esi
 		InjectHook( 0x55E0E3, ReleaseTextureAndNull );
@@ -908,7 +909,7 @@ void InjectHooks()
 		InjectHook( 0x514D98, PopTimer_AddMissingReferences );
 
 		// TEMPORARY DEBUG
-		//InjectHook( 0x5F0F90, ReleaseTextureDebug, PATCH_JUMP );
+		//InjectHook( 0x5F0F90, ReleaseTextureDebug, HookType::Jump );
 	}
 
 	// Don't call RwFrameDestroy from CameraDestroy (crashes for some reason)
@@ -941,8 +942,8 @@ void InjectHooks()
 		using namespace SEALeaksFix;
 
 		// Do not ignore XACT flags, when failing use CoTaskMemFree if it's managed
-		InjectHook( 0x5AE690, MDXact_Manager_Internal_CreateInMemoryWaveBank, PATCH_JUMP );
-		InjectHook( 0x5AE590, MDXact_Manager_Internal_CreateSoundBank, PATCH_JUMP );
+		InjectHook( 0x5AE690, MDXact_Manager_Internal_CreateInMemoryWaveBank, HookType::Jump );
+		InjectHook( 0x5AE590, MDXact_Manager_Internal_CreateSoundBank, HookType::Jump );
  
 		// In ScreamSoundBank::SetupSEA use CoTaskMemAlloc & CoTaskMemFree for XACT buffer
 		InjectHook( 0x5A990D, RedirectMallocToCoTaskMemAlloc );
@@ -1025,7 +1026,7 @@ static bool PatchIAT_ByPointers()
 {
 	pOrgSystemParametersInfoA = SystemParametersInfoA;
 	memcpy( orgCode, pOrgSystemParametersInfoA, sizeof(orgCode) );
-	Memory::VP::InjectHook( pOrgSystemParametersInfoA, SystemParametersInfoA_OverwritingHook, PATCH_JUMP );
+	Memory::VP::InjectHook( pOrgSystemParametersInfoA, SystemParametersInfoA_OverwritingHook, Memory::VP::HookType::Jump );
 	return true;
 }
 
