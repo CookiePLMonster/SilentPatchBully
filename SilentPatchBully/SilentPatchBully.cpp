@@ -438,6 +438,26 @@ namespace SEALeaksFix
 	}
 };
 
+// ============= Fix 2D quad batch overflow when flushing while rendering is unavailable =============
+// Quad batch flush bails out early when the device can't render (e.g. while changing resolution)
+// without discarding pending quads, so they keep piling up past the 500 quads array
+// and corrupt globals following it (including the batch's own vertex/index buffers)
+namespace QuadBatchOverflowFix
+{
+	static bool (*orgCanRender)();
+	static bool CanRender_DiscardQuads()
+	{
+		if ( orgCanRender() )
+		{
+			return true;
+		}
+
+		// They can't be drawn anyway
+		*(uint32_t*)0x20DCD44 = 0;
+		return false;
+	}
+};
+
 
 void InjectHooks()
 {
@@ -953,6 +973,15 @@ void InjectHooks()
 		Patch<int8_t>( 0x5A99AF, 1 );
 		ReadCall( 0x5A9A1F, MDXactCreateSoundBankCommand );
 		InjectHook( 0x5A9A1F, MDXactCreateSoundBankWithManagedDataCommand );
+	}
+
+
+	// Fix 2D quad batch overflowing its array when flushed while rendering is unavailable
+	{
+		using namespace QuadBatchOverflowFix;
+
+		ReadCall( 0x739440, orgCanRender );
+		InjectHook( 0x739440, CanRender_DiscardQuads );
 	}
 }
 
