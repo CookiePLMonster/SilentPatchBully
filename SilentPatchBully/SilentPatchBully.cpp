@@ -439,6 +439,50 @@ namespace SEALeaksFix
 };
 
 
+namespace SystemKeysFix
+{
+	static const auto FEQuitGame_Execute = (void(*)())0x6998B0;
+
+	static bool bQuitRequested = false;
+
+	static WNDPROC orgWndProc;
+	static LRESULT CALLBACK WndProc_SilentPatch( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
+	{
+		switch ( uMsg )
+		{
+		case WM_SYSCOMMAND:
+			// With the keyboard no longer exclusive, Alt or F10 alone would enter a modal menu loop and freeze the game
+			if ( (wParam & 0xFFF0) == SC_KEYMENU )
+			{
+				return 0;
+			}
+			break;
+
+		case WM_CLOSE:
+			// The game's main loop ignores WM_DESTROY and WM_QUIT, so request a quit to be handled by the main loop instead
+			bQuitRequested = true;
+			return 0;
+		}
+
+		return orgWndProc( hWnd, uMsg, wParam, lParam );
+	}
+
+	static void (*orgPumpMessages)();
+	static void PumpMessages_HandleQuit()
+	{
+		orgPumpMessages();
+
+		// Quit the same way the Quit Game menu option does. This can't be done from the window procedure,
+		// as loading screens pump messages too, and quitting loads the game if it isn't loaded yet
+		if ( bQuitRequested )
+		{
+			bQuitRequested = false;
+			FEQuitGame_Execute();
+		}
+	}
+};
+
+
 void InjectHooks()
 {
 	using namespace Memory;
@@ -953,6 +997,21 @@ void InjectHooks()
 		Patch<int8_t>( 0x5A99AF, 1 );
 		ReadCall( 0x5A9A1F, MDXactCreateSoundBankCommand );
 		InjectHook( 0x5A9A1F, MDXactCreateSoundBankWithManagedDataCommand );
+	}
+
+
+	// Make the Windows key and Alt+F4 work
+	{
+		using namespace SystemKeysFix;
+
+		// Don't acquire the keyboard exclusively, so system keys aren't swallowed
+		Patch<int8_t>( 0x50BC62 + 1, 6 ); // DISCL_NONEXCLUSIVE | DISCL_FOREGROUND
+
+		orgWndProc = *(WNDPROC*)(0x43B732 + 4);
+		Patch<WNDPROC>( 0x43B732 + 4, WndProc_SilentPatch );
+
+		ReadCall( 0x43D650, orgPumpMessages );
+		InjectHook( 0x43D650, PumpMessages_HandleQuit );
 	}
 }
 
