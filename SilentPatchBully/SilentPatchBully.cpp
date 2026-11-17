@@ -969,7 +969,7 @@ void InjectHooks()
 	Patch<uint8_t>( 0x5EF954, 0xEB );
 
 
-	// Restore speech variety after exhausting an event's matching samples.
+	// Restore speech variety after exhausting an event's matching samples
 	{
 		using namespace SpeechPoolFix;
 
