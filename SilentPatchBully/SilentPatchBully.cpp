@@ -973,8 +973,7 @@ void InjectHooks()
 	{
 		using namespace SpeechPoolFix;
 
-		ReadCall( 0x5A6064, orgInitPackages );
-		InjectHook( 0x5A6064, InitPackages_EnableLooping );
+		InterceptCall( 0x5A6064, orgInitPackages, InitPackages_EnableLooping );
 	}
 
 	// Fix use-after-free when sndStream gets released before overlapped read finishes
