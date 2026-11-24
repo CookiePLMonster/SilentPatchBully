@@ -440,6 +440,59 @@ namespace SEALeaksFix
 };
 
 
+namespace SpeechPoolFix
+{
+	struct SpeechEventPackage
+	{
+		uint16_t event;
+		uint16_t numItems;
+		uint8_t lastSpeaker;
+		uint8_t selectionFlags;
+		uint16_t lastItem;
+		void* items;
+	};
+	static_assert(sizeof(SpeechEventPackage) == 0xC, "Wrong size: SpeechEventPackage");
+
+	void EnableLoopingForDefaultPackages( SpeechEventPackage* packages, size_t count )
+	{
+		// Stock SpeechDB.bin packages have no selection flags and lastItem == 0x60.
+		// Without looping, exhausting the matching samples makes the selector keep
+		// returning the first played match instead of resetting its playback history.
+		static constexpr uint8_t LOOP_WHEN_EXHAUSTED = 0x04;
+		for ( size_t i = 0; i < count; i++ )
+		{
+			auto& package = packages[i];
+			if ( package.numItems != 0 && package.lastSpeaker == 0 &&
+				package.selectionFlags == 0 && package.lastItem == 0x60 )
+			{
+				package.selectionFlags |= LOOP_WHEN_EXHAUSTED;
+			}
+		}
+	}
+
+	struct PackageTable
+	{
+		uint32_t count;
+		SpeechEventPackage* packages;
+	};
+	static_assert(sizeof(PackageTable) == 8, "Wrong size: speech package table");
+
+	static bool (__thiscall* orgInitPackages)(void* library);
+	bool __fastcall InitPackages_EnableLooping( void* library, void* )
+	{
+		const bool result = orgInitPackages( library );
+		if ( result )
+		{
+			auto* table = *reinterpret_cast<PackageTable**>(static_cast<uint8_t*>(library) + 0xC90);
+			if ( table != nullptr && table->packages != nullptr )
+			{
+				EnableLoopingForDefaultPackages( table->packages, table->count );
+			}
+		}
+		return result;
+	}
+}
+
 void InjectHooks()
 {
 	using namespace Memory;
@@ -915,6 +968,13 @@ void InjectHooks()
 	// Don't call RwFrameDestroy from CameraDestroy (crashes for some reason)
 	Patch<uint8_t>( 0x5EF954, 0xEB );
 
+
+	// Restore speech variety after exhausting an event's matching samples
+	{
+		using namespace SpeechPoolFix;
+
+		InterceptCall( 0x5A6064, orgInitPackages, InitPackages_EnableLooping );
+	}
 
 	// Fix use-after-free when sndStream gets released before overlapped read finishes
 	{
