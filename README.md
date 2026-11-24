@@ -18,6 +18,7 @@ Fixes featured in this plugin:
 * Fixed an use-after-free in sound streaming code, causing a rare crash when talking to people
 * Fixed handle leaks in audio code, preventing handles from accumulating during the game
 * Fixed several memory leaks in audio code, preventing out of memory crashes during extended play sessions
+* Fixed memory corruption in 2D drawing code occurring when the game is unable to render (e.g. when changing resolution), causing random crashes
 * Made memory manager workarounds toggleable via the INI file - disabled by default, to be removed in the future
 * Frame Limiter has been made much more precise, so the game should lock at exactly 30FPS now
   (as opposed to stock limiter being prone to dropping frames a lot)
